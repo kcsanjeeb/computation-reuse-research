@@ -198,6 +198,7 @@ def object_exists(s3c, bucket, key):
         if e.response['Error']['Code'] == '404':
             return False
         raise
+    
 # -------------- Main -----------------------
 def main():
     out_root = OUTDIR_LOCAL
