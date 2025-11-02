@@ -1,0 +1,98 @@
+apiVersion: kubeflow.org/v1beta1
+kind: Experiment
+metadata:
+  name: cifar10-reuse-discovery
+  namespace: kubeflow
+spec:
+  objective:
+    type: maximize
+    goal: 0.90
+    objectiveMetricName: val_accuracy
+    additionalMetricNames: [train_loss, wall_time_seconds]
+
+  algorithm:
+    algorithmName: grid
+
+  parallelTrialCount: 3
+  maxTrialCount: 24
+  maxFailedTrialCount: 3
+
+  parameters:
+    - name: lr
+      parameterType: categorical
+      feasibleSpace:
+        list: ["0.001","0.0005","0.0001"]
+    - name: weight_decay
+      parameterType: categorical
+      feasibleSpace:
+        list: ["0.0001","0.0005"]
+    - name: dropout
+      parameterType: categorical
+      feasibleSpace:
+        list: ["0.0","0.3"]
+    - name: optimizer
+      parameterType: categorical
+      feasibleSpace:
+        list: ["adam","sgd"]
+
+  trialTemplate:
+    primaryContainerName: training-container
+    trialParameters:
+      - name: lr
+        description: Learning rate
+        reference: lr
+      - name: weight_decay
+        description: Weight decay
+        reference: weight_decay
+      - name: dropout
+        description: Dropout
+        reference: dropout
+      - name: optimizer
+        description: Optimizer
+        reference: optimizer
+    trialSpec:
+      apiVersion: batch/v1
+      kind: Job
+      spec:
+        template:
+          metadata:
+            annotations:
+              sidecar.istio.io/inject: "false"
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: training-container
+              image: 10.249.190.44:5000/cifar10-katib:base-2.1.0-cu118
+              imagePullPolicy: IfNotPresent
+              command:
+              - python
+              - /workspace/train.py
+              - --dataset=cifar10
+              - --model=resnet18
+              - --epochs=20
+              - --lr=${trialParameters.lr}
+              - --weight-decay=${trialParameters.weight_decay}
+              - --dropout=${trialParameters.dropout}
+              - --optimizer=${trialParameters.optimizer}
+              - --probe-size=512
+              - --log-activations-epochs=1,2,4,8,16,20
+              - --data-dir=/workspace/data
+              env:
+              - name: KATIB_TRIAL_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['trial']
+              - name: MINIO_ENDPOINT
+                value: "10.249.190.44:9000"
+              - name: MINIO_BUCKET
+                value: "katib-artifacts"
+              - name: MINIO_ACCESS_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: minio-secret
+                    key: accesskey
+              - name: MINIO_SECRET_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: minio-secret
+                    key: secretkey

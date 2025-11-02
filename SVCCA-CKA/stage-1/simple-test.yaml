@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-registry-test
+  namespace: kubeflow
+spec:
+  hostNetwork: true
+  containers:
+  - name: test
+    image: 10.249.190.44:5000/cifar10-katib:base-2.1.0-cu118
+    command: ["sleep", "3600"]
+  restartPolicy: Never
