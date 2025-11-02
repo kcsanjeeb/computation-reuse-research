@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: katib-webhook
+  namespace: kubeflow
+spec:
+  selector:
+    katib.kubeflow.org/component: controller
+  ports:
+    - name: https
+      port: 443
+      targetPort: 8443  # ✅ Must match the containerPort in the katib-controller

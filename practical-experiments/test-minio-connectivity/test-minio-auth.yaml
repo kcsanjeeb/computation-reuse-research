@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: minio-python-auth-test
+  namespace: kubeflow
+spec:
+  containers:
+  - name: test
+    image: docker.io/python:3.9-slim
+    command: ["sh", "-c", "pip install boto3 && python -c \"
+import boto3
+from botocore.client import Config
+import sys
+
+s3 = boto3.client('s3',
+    endpoint_url='http://minio-service:9000',
+    aws_access_key_id='minioadmin',
+    aws_secret_access_key='minioadmin',
+    config=Config(signature_version='s3v4'),
+    verify=False)
+
+try:
+    # Test 1: List buckets
+    buckets = s3.list_buckets()
+    print('✓ Bucket listing successful')
+    print('  Available buckets:', [b['Name'] for b in buckets['Buckets']])
+    
+    # Test 2: List objects in katib-artifacts
+    objects = s3.list_objects_v2(Bucket='katib-artifacts')
+    print('✓ Bucket katib-artifacts accessible')
+    print('  Objects count:', len(objects.get('Contents', [])))
+    
+    # Test 3: Try to put a test object
+    s3.put_object(Bucket='katib-artifacts', Key='test-file.txt', Body=b'test content')
+    print('✓ Object upload successful')
+    
+    # Test 4: Clean up test object
+    s3.delete_object(Bucket='katib-artifacts', Key='test-file.txt')
+    print('✓ Object delete successful')
+    
+    print('\\\\n🎉 ALL TESTS PASSED: MinIO authentication and operations working correctly!')
+    
+except Exception as e:
+    print('✗ ERROR:', e)
+    sys.exit(1)
+\""]
+  restartPolicy: Never
